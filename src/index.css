@@ -1,0 +1,439 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+
+  /* Neutrals: the palette's base and surfaces (slate classes adopt these) */
+  --color-slate-50: #F2F4F8;
+  --color-slate-100: #E7EAF1;
+  --color-slate-200: #D3D8E2;
+  --color-slate-300: #AEB5C5;
+  --color-slate-400: #8B93A7;
+  --color-slate-500: #8B93A7;
+  --color-slate-600: #3F485C;
+  --color-slate-700: #2D3646;
+  --color-slate-800: #232A38;
+  --color-slate-900: #161A23;
+  --color-slate-950: #0B0D12;
+  /* Main teal: replaces indigo, sky, cyan and violet so every accent is one family */
+  --color-indigo-50: #F0FDFA;
+  --color-indigo-100: #CCFBF1;
+  --color-indigo-200: #99F6E4;
+  --color-indigo-300: #5EEAD4;
+  --color-indigo-400: #2DD4BF;
+  --color-indigo-500: #2DD4BF;
+  --color-indigo-600: #14B8A6;
+  --color-indigo-700: #0F766E;
+  --color-indigo-800: #115E59;
+  --color-indigo-900: #134E4A;
+  --color-indigo-950: #042F2E;
+  --color-cyan-300: #5EEAD4;
+  --color-cyan-400: #2DD4BF;
+  --color-cyan-500: #2DD4BF;
+  --color-sky-300: #5EEAD4;
+  --color-sky-400: #2DD4BF;
+  --color-violet-400: #2DD4BF;
+  --color-violet-500: #2DD4BF;
+  --color-purple-400: #2DD4BF;
+  --color-purple-500: #2DD4BF;
+  --color-pink-400: #2DD4BF;
+  /* Lime: emerald is the success language (solved, correct, accepted) */
+  --color-emerald-300: #E2FF86;
+  --color-emerald-400: #D4FF3A;
+  --color-emerald-500: #BEE62F;
+  --color-emerald-600: #9ECC1A;
+  --color-emerald-700: #7AA014;
+  --color-emerald-800: #5E7A12;
+  --color-emerald-900: #3F520C;
+  --color-emerald-950: #232E08;
+  --color-highlight: rgb(var(--highlight));
+  --color-highlight-ink: rgb(var(--highlight-ink));
+  --color-canvas: rgb(var(--canvas));
+  --color-panel: rgb(var(--panel));
+  --color-panel-elevated: rgb(var(--panel-elevated));
+  --color-field: rgb(var(--field));
+  --color-line: rgb(var(--line));
+  --color-line-subtle: rgb(var(--line-subtle));
+  --color-ink: rgb(var(--ink));
+  --color-muted: rgb(var(--muted));
+  --color-accent: rgb(var(--accent));
+  --color-accent-ink: rgb(var(--accent-ink));
+  --color-accent-subtle: rgb(var(--accent-subtle));
+  --color-success: rgb(var(--success));
+  --color-warning: rgb(var(--warning));
+  --color-danger: rgb(var(--danger));
+  --color-brand: rgb(var(--brand));
+  --color-math: rgb(var(--math));
+  --color-geometry: rgb(var(--geometry));
+  --color-coding: rgb(var(--coding));
+  --font-display: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
+  --font-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, Menlo, monospace;
+  --font-math: "KaTeX_Main", "Cambria Math", "Latin Modern Math", serif;
+}
+
+:root {
+  color-scheme: dark;
+  /* Palette A: teal main, acid lime highlight, near-black base. Dark only. */
+  --canvas: 11 13 18;            /* #0B0D12 base */
+  --panel: 22 26 35;             /* #161A23 surface */
+  --panel-elevated: 30 35 48;    /* #1E2330 raised surface */
+  --field: 27 32 43;             /* #1B202B inputs */
+  --line: 42 48 64;              /* #2A3040 hairline */
+  --line-subtle: 32 37 50;       /* #202532 */
+  --ink: 242 244 248;            /* #F2F4F8 primary text (17.6:1) */
+  --muted: 139 147 167;          /* #8B93A7 secondary text (6.3:1) */
+  --accent: 45 212 191;          /* #2DD4BF main teal: focus, active, primary */
+  --accent-ink: 11 13 18;        /* text on teal and lime */
+  --accent-subtle: 20 56 52;     /* #143834 teal tint */
+  --brand: 45 212 191;           /* #2DD4BF Uzbit identity */
+  --highlight: 212 255 58;       /* #D4FF3A acid lime: rare attention */
+  --highlight-ink: 11 13 18;
+  --success: 212 255 58;         /* correct, solved, accepted */
+  --warning: 251 191 36;         /* #FBBF24 */
+  --danger: 251 113 133;         /* #FB7185 */
+  /* Subject colors: tints of the same family, not separate hues */
+  --math: 45 212 191;            /* algebra, functions, calculus */
+  --geometry: 94 234 212;        /* #5EEAD4 */
+  --coding: 153 246 228;         /* #99F6E4 */
+}
+
+/* Spacing system (4px base): 4, 8, 12, 16, 24, 32, 48.
+ * Shell: header, breadcrumb and page content share one container, so their edges align.
+ * Panels: 24px padding for large cards, 16px for medium, 12px for dense rows. */
+@utility container-shell {
+  max-width: 80rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
+  @media (width >= 64rem) {
+    padding-inline: 2rem;
+  }
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Headings use the display face. Weight and size still come from each element's classes. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+    font-optical-sizing: auto;
+  }
+  h1 {
+    letter-spacing: -0.025em;
+  }
+}
+
+/* Keyboard focus must be visible everywhere, not only on some controls */
+:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}
+
+/* Respect the OS setting for reduced motion (CSS animations and transitions) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Minimal JSXGraph styles */
+.jxgbox {
+  position: relative;
+  overflow: hidden;
+  background-color: transparent !important;
+  border: none !important;
+  touch-action: none;
+}
+.jxgbox svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.jxgbox text {
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+.JXGtext {
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  background-color: transparent;
+  padding: 0;
+  margin: 0;
+}
+.JXGinfobox {
+  border-style: none;
+  border-width: 0;
+  border-color: black;
+}
+
+/* ============================================================
+   Motion (Step 6)
+   Three durations and one easing curve. Motion explains a change; nothing animates for decoration.
+   Reduced-motion users get no transitions (see the global rule at the top of this file).
+   ============================================================ */
+:root {
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 150ms;   /* hover, press, colour changes */
+  --dur-base: 220ms;   /* panels opening, page changes */
+  --dur-slow: 320ms;   /* larger layout moves */
+}
+
+@keyframes page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Page change: a short fade. No slide, no cascade. */
+.page-enter {
+  animation: page-in var(--dur-base) var(--ease-standard) backwards;
+}
+
+/* Menus open with a small scale from their corner. */
+.animate-dropdown {
+  animation: scale-in var(--dur-fast) var(--ease-standard) backwards;
+  transform-origin: top right;
+}
+
+/* Cards lift slightly and show a border change on hover. No glow, no icon movement. */
+.glow-card {
+  transition: transform var(--dur-slow) var(--ease-standard), border-color var(--dur-base) ease;
+}
+.glow-card:hover {
+  transform: translateY(-2px);
+  border-color: rgb(var(--accent) / 0.35);
+}
+
+/* Hover marker for list rows: a thin accent bar, not a glow. */
+.glow-item {
+  transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+}
+
+/* ===== Controls system (Step 4) =====
+ * Buttons: primary (main action), secondary (supporting), ghost (quiet), icon (square).
+ * Every button has default, hover, pressed, focus-visible and disabled states.
+ * Sizes: sm 32px, default 36px, lg 44px. Radius 8px. Text is Inter 14px medium.
+ */
+@layer components {
+  :where(.btn) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.25rem;
+    padding-inline: 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease, color var(--dur-fast) ease,
+      box-shadow var(--dur-base) ease, transform 120ms ease;
+  }
+  :where(.btn):active:not(:disabled) {
+    transform: translateY(1px) scale(0.98);
+  }
+  :where(.btn):disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  :where(.btn-primary) {
+    background: rgb(var(--accent));
+    color: rgb(var(--accent-ink));
+    font-weight: 600;
+  }
+  :where(.btn-primary):hover:not(:disabled) {
+    background: rgb(var(--accent) / 0.86);
+    box-shadow: 0 6px 20px -8px rgb(var(--accent) / 0.6);
+  }
+  :where(.btn-primary):active:not(:disabled) {
+    background: rgb(var(--accent) / 0.74);
+  }
+
+  :where(.btn-secondary) {
+    background: rgb(var(--field));
+    border-color: rgb(var(--line));
+    color: rgb(var(--ink));
+  }
+  :where(.btn-secondary):hover:not(:disabled) {
+    background: rgb(var(--panel-elevated));
+    border-color: rgb(var(--muted) / 0.5);
+  }
+  :where(.btn-secondary):active:not(:disabled) {
+    background: rgb(var(--line-subtle));
+  }
+
+  :where(.btn-ghost) {
+    background: transparent;
+    color: rgb(var(--muted));
+  }
+  :where(.btn-ghost):hover:not(:disabled) {
+    background: rgb(var(--panel-elevated));
+    color: rgb(var(--ink));
+  }
+  :where(.btn-ghost):active:not(:disabled) {
+    background: rgb(var(--line-subtle));
+  }
+
+  :where(.btn-icon) {
+    width: 2.25rem;
+    padding-inline: 0;
+    background: transparent;
+    color: rgb(var(--muted));
+  }
+  :where(.btn-icon):hover:not(:disabled) {
+    background: rgb(var(--panel-elevated));
+    color: rgb(var(--ink));
+  }
+  :where(.btn-icon):active:not(:disabled) {
+    background: rgb(var(--line-subtle));
+  }
+
+  :where(.btn-sm) {
+    height: 2rem;
+    padding-inline: 0.75rem;
+    font-size: 0.8125rem;
+  }
+  :where(.btn-lg) {
+    height: 2.75rem;
+    padding-inline: 1.25rem;
+    font-size: 0.9375rem;
+  }
+
+  /* Segmented tabs: one active item, the rest quiet */
+  :where(.tab) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 2rem;
+    padding-inline: 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(var(--muted));
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+  :where(.tab):hover {
+    color: rgb(var(--ink));
+    background: rgb(var(--panel-elevated));
+  }
+  :where(.tab)[aria-selected='true'],
+  :where(.tab)[aria-pressed='true'],
+  :where(.tab):where(.is-active) {
+    background: rgb(var(--accent));
+    color: rgb(var(--accent-ink));
+    font-weight: 600;
+  }
+
+/* The active tab always wins, even while hovered. */
+.tab.is-active,
+.tab[aria-current='page'] {
+  background: rgb(var(--accent));
+  color: rgb(var(--accent-ink));
+  font-weight: 600;
+}
+
+  /* Fields and selects: one height, one radius, one focus treatment */
+  :where(.field) {
+    height: 2.25rem;
+    padding-inline: 0.75rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(var(--line));
+    background: rgb(var(--field));
+    color: rgb(var(--ink));
+    font-size: 0.875rem;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+  :where(.field)::placeholder {
+    color: rgb(var(--muted) / 0.7);
+  }
+}
+
+
+/* Content buttons (cards, answer options, menu rows): sized by their content, not a fixed 36px row */
+:where(.btn-content) {
+  height: auto;
+  padding: 0.875rem 1rem;
+  line-height: 1.45;
+  justify-content: flex-start;
+  align-items: stretch;
+  text-align: left;
+  white-space: normal;
+}
+
+/* Form controls and sliders: unlayered so they style every control, not only classed ones.
+ * Focus is a teal ring, visible on every field, button and slider. */
+input[type='range'] {
+  accent-color: rgb(var(--accent));
+  cursor: pointer;
+}
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  border-color: rgb(var(--accent)) !important;
+  box-shadow: 0 0 0 3px rgb(var(--accent) / 0.25);
+  outline: none;
+}
+input[type='range']:focus-visible {
+  box-shadow: 0 0 0 4px rgb(var(--accent) / 0.25);
+  border-color: transparent !important;
+}
+select {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Touch screens: controls are at least 44px, the recommended minimum for a finger.
+ * Desktop sizes are unchanged because this only applies to coarse pointers. */
+@media (pointer: coarse) {
+  :where(.btn, .tab) {
+    min-height: 2.75rem;
+  }
+  button[class*='h-6'],
+  button[class*='h-7'],
+  button[class*='w-6'],
+  button[class*='w-7'] {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+@media (pointer: coarse) {
+  :where(.tab) {
+    min-width: 2.75rem;
+    justify-content: center;
+  }
+  button[aria-label^='Background'],
+  footer a {
+    min-height: 2.75rem;
+    display: inline-flex;
+    align-items: center;
+  }
+}
