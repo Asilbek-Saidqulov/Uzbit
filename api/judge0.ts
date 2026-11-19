@@ -27,8 +27,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') return json(405, { error: 'Use POST.' });
 
-  const key = process.env.JUDGE0_RAPIDAPI_KEY;
-  const host = process.env.JUDGE0_RAPIDAPI_HOST;
+  const key = process.env.JUDGE0_RAPIDAPI_KEY?.trim();
+  const host = process.env.JUDGE0_RAPIDAPI_HOST?.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
   if (!key || !host) return json(500, { error: 'The judge service is not configured on the server.' });
 
   const text = await req.text();
@@ -69,7 +69,8 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     return json(200, result);
-  } catch {
+  } catch (err) {
+    console.error('judge0 proxy failed:', err);
     return json(502, { error: 'The judge service could not be reached.' });
   }
 }
