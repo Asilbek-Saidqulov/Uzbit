@@ -8,11 +8,12 @@
  */
 import { checkProxyRequest, MAX_BODY_CHARS } from '../src/judge/engine/proxyRules';
 
-export const config = { runtime: 'edge' };
+/** Frankfurt: closer to the Judge0 servers and to Uzbekistan than the default. Remove `regions` to run near each visitor. */
+export const config = { runtime: 'edge', regions: ['fra1'] };
 
 /** How long to keep polling for a finished result before giving up. */
 const POLL_TIMEOUT_MS = 15_000;
-const POLL_INTERVAL_MS = 500;
+const POLL_INTERVAL_MS = 250;
 /** Judge0 status ids 1 (In Queue) and 2 (Processing) mean the run is not finished yet. */
 const UNFINISHED = (id: number | undefined) => id === undefined || id <= 2;
 

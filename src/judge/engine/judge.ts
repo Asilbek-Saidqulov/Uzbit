@@ -30,6 +30,9 @@ export interface JudgeOptions {
   onRun?: (event: RunEvent) => void;
 }
 
+/** How many tests a remote (C++/Rust) judge may run at the same time. Lower this if RapidAPI answers HTTP 429. */
+const PARALLEL_NATIVE_RUNS = 3;
+
 /** Only function problems add judge code after the learner's; stdio programs run exactly as written. */
 const userLinesOf = (problem: JudgeProblem, code: string): number | undefined =>
   problem.mode === 'function' ? code.split('\n').length : undefined;
@@ -63,10 +66,26 @@ export async function judgeCode({ problem, code, language, mode, runner, onRun }
     return { verdict: 'accepted', message: 'No tests to run.', outcomes, passed: 0, total: 0, maxTimeMs: 0 };
   }
 
+  // C++ and Rust compile and run on a remote judge, one request per test. Those requests are
+  // independent, so a few are kept in flight at once while results are still read in order
+  // (early exit and the terminal output behave exactly as before). Python and JavaScript share
+  // one in-browser worker, so they stay one at a time.
+  const window = language === 'cpp' || language === 'rust' ? PARALLEL_NATIVE_RUNS : 1;
+  const started = new Map<number, Promise<RawResult>>();
+  const runTest = (j: number) =>
+    runner({ language, code: program, stdin: tests[j].input, timeLimitMs: problem.timeLimitMs, userLines });
+  const startRun = (j: number) => {
+    if (j < tests.length && !started.has(j)) started.set(j, runTest(j));
+  };
+
   for (let i = 0; i < tests.length; i++) {
     const test = tests[i];
     const hidden = !test.example;
-    const actual = await runner({ language, code: program, stdin: test.input, timeLimitMs: problem.timeLimitMs, userLines });
+    for (let j = i; j < i + window; j++) startRun(j);
+    let actual = await started.get(i)!;
+    started.delete(i);
+    // A burst of parallel requests can be rate limited. Try this test once more on its own.
+    if (window > 1 && actual.kind === 'unavailable') actual = await runTest(i);
     const raw = hidden && actual.kind !== 'unavailable' ? redactHidden(actual) : actual;
     onRun?.({ index: i + 1, total: tests.length, hidden, stdin: hidden ? '' : test.input, raw });
 
