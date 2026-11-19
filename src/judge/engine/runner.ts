@@ -168,7 +168,9 @@ async function runNative(req: RunRequest): Promise<RawResult> {
       }),
     });
     if (!response.ok) {
-      return { kind: 'unavailable', stdout: '', error: `Judge service returned HTTP ${response.status}.`, timeMs: 0 };
+      const body = await response.json().catch(() => null);
+      const detail = typeof body?.detail === 'string' && body.detail ? ' ' + body.detail.slice(0, 200) : '';
+      return { kind: 'unavailable', stdout: '', error: `Judge service returned HTTP ${response.status}.${detail}`, timeMs: 0 };
     }
     return mapJudge0(await response.json(), req.language);
   } catch (err: any) {

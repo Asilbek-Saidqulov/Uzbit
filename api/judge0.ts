@@ -6,7 +6,7 @@
  *   JUDGE0_RAPIDAPI_KEY   your RapidAPI key
  *   JUDGE0_RAPIDAPI_HOST  the host shown on the Judge0 CE page, e.g. judge0-ce.p.rapidapi.com
  */
-import { checkProxyRequest, MAX_BODY_CHARS } from '../src/judge/engine/proxyRules';
+import { checkProxyRequest, decodeJudge0Result, MAX_BODY_CHARS, toBase64 } from '../src/judge/engine/proxyRules';
 
 /** Frankfurt: closer to the Judge0 servers and to Uzbekistan than the default. Remove `regions` to run near each visitor. */
 export const config = { runtime: 'edge', regions: ['fra1'] };
@@ -21,6 +21,18 @@ const JSON_HEADERS = { 'Content-Type': 'application/json', 'Cache-Control': 'no-
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+}
+
+/** An error answer from Judge0 or RapidAPI, with the start of its own message so the cause is visible. */
+async function failure(res: Response): Promise<Response> {
+  let detail = '';
+  try {
+    detail = (await res.text()).slice(0, 300);
+  } catch {
+    /* no body */
+  }
+  console.error('judge0 upstream error', res.status, detail);
+  return json(res.status, { error: `Judge service returned HTTP ${res.status}.`, detail });
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,12 +61,17 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     // 1. Create the submission. RapidAPI may answer before the program has finished.
-    const created = await fetch(`${base}/submissions?base64_encoded=false&wait=true`, {
+    const created = await fetch(`${base}/submissions?base64_encoded=true&wait=true`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...auth },
-      body: JSON.stringify(checked.value),
+      // base64_encoded=true: source and input are sent as base64, and the result comes back as base64.
+      body: JSON.stringify({
+        ...checked.value,
+        source_code: toBase64(checked.value.source_code),
+        stdin: toBase64(checked.value.stdin),
+      }),
     });
-    if (!created.ok) return json(created.status, { error: `Judge service returned HTTP ${created.status}.` });
+    if (!created.ok) return failure(created);
 
     let result: any = await created.json();
 
@@ -62,14 +79,14 @@ export default async function handler(req: Request): Promise<Response> {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     while (result?.token && UNFINISHED(result?.status?.id) && Date.now() < deadline) {
       await sleep(POLL_INTERVAL_MS);
-      const polled = await fetch(`${base}/submissions/${result.token}?base64_encoded=false&fields=*`, {
+      const polled = await fetch(`${base}/submissions/${result.token}?base64_encoded=true&fields=*`, {
         headers: auth,
       });
-      if (!polled.ok) return json(polled.status, { error: `Judge service returned HTTP ${polled.status}.` });
+      if (!polled.ok) return failure(polled);
       result = await polled.json();
     }
 
-    return json(200, result);
+    return json(200, decodeJudge0Result(result));
   } catch (err) {
     console.error('judge0 proxy failed:', err);
     return json(502, { error: 'The judge service could not be reached.' });

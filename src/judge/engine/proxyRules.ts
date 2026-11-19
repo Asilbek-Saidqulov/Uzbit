@@ -52,3 +52,50 @@ export function checkProxyRequest(body: unknown): ProxyCheck {
     value: { source_code: b.source_code, language_id: b.language_id, stdin, cpu_time_limit: cpu },
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Base64 transport                                                    */
+/* ------------------------------------------------------------------ */
+/*
+ * Judge0 refuses to return a result as plain JSON (HTTP 400) when any text in it is not valid
+ * UTF-8, which compiler error messages often are. The proxy therefore talks to Judge0 in base64
+ * and decodes the result itself, replacing any invalid bytes instead of failing.
+ */
+
+/** UTF-8 text to base64. Works in the browser, Node and the Vercel edge runtime. */
+export function toBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+/** Base64 to UTF-8 text. Invalid byte sequences become U+FFFD rather than throwing. */
+export function fromBase64(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  const binary = atob(String(value).replace(/\s+/g, ''));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder('utf-8').decode(bytes);
+}
+
+const TEXT_FIELDS = ['stdout', 'stderr', 'compile_output', 'message'] as const;
+
+/** Decodes the text fields of a Judge0 result that was requested with base64_encoded=true. */
+export function decodeJudge0Result(result: any): any {
+  if (!result || typeof result !== 'object') return result;
+  const out = { ...result };
+  for (const field of TEXT_FIELDS) {
+    if (typeof out[field] === 'string') {
+      try {
+        out[field] = fromBase64(out[field]);
+      } catch {
+        /* not valid base64: leave the field as it came */
+      }
+    }
+  }
+  return out;
+}

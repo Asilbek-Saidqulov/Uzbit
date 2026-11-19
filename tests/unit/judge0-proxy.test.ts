@@ -33,3 +33,33 @@ test('non-object bodies are refused', () => {
   assert.strictEqual(checkProxyRequest([good]).ok, false);
   assert.strictEqual(checkProxyRequest('code').ok, false);
 });
+
+import { toBase64, fromBase64, decodeJudge0Result } from '../../src/judge/engine/proxyRules';
+
+test('base64 round-trips UTF-8 text, including compiler quotes and newlines', () => {
+  const text = "main.cpp:5: error: expected ‘;’ before ‘cout’\nпривет ✓\n";
+  assert.equal(fromBase64(toBase64(text)), text);
+  assert.equal(fromBase64(null), null);
+});
+
+test('decodeJudge0Result decodes text fields and leaves the rest alone', () => {
+  const out = decodeJudge0Result({
+    token: 't',
+    status: { id: 6 },
+    time: null,
+    compile_output: toBase64("error: expected ‘;’"),
+    stdout: null,
+    stderr: toBase64('x'),
+  });
+  assert.equal(out.compile_output, 'error: expected ‘;’');
+  assert.equal(out.stdout, null);
+  assert.equal(out.stderr, 'x');
+  assert.equal(out.token, 't');
+  assert.deepEqual(out.status, { id: 6 });
+});
+
+test('fromBase64 tolerates line-wrapped base64 and invalid UTF-8 bytes', () => {
+  const wrapped = toBase64('hello world').replace(/(.{4})/g, '$1\n');
+  assert.equal(fromBase64(wrapped), 'hello world');
+  assert.equal(fromBase64(btoa(String.fromCharCode(0x68, 0xff, 0x69))), 'h\uFFFDi');
+});
