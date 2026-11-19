@@ -6,7 +6,7 @@ import { StatePanel } from '@/components/StatePanel.tsx';
 import { cancelRun, NATIVE_RUNNER_CONFIGURED, runProgram } from '../engine/runner';
 import { judgeCode, runCustom } from '../engine/judge';
 import type { Attempt } from '../storage';
-import type { Diagnostic, Difficulty, JudgeProblem, JudgeReport, Language, RawResult, Verdict } from '../types';
+import type { Diagnostic, Difficulty, JudgeProblem, JudgeReport, Language, RawResult, StreamChunk, Verdict } from '../types';
 import { LANGUAGE_META } from '../types';
 
 interface SolveViewProps {
@@ -86,19 +86,24 @@ export const SolveView: React.FC<SolveViewProps> = ({
   const entryId = useRef(0);
   const jump = (line: number, column: number) => setJumpTo({ line, column, nonce: ++entryId.current });
 
-  const appendRun = (command: string, raw: RawResult, footer?: string) =>
+  const appendRun = (command: string, raw: RawResult, footer?: string) => {
+    let stream: StreamChunk[] = raw.stream ?? (raw.stdout ? [{ fd: 1, text: raw.stdout }] : []);
+    // A run that failed without printing anything (for example the judge service returned an
+    // error) would otherwise look like a blank "exit 1". Show the reason in the terminal.
+    if (stream.length === 0 && raw.error) stream = [{ fd: 2, text: raw.error.endsWith('\n') ? raw.error : raw.error + '\n' }];
     setSession((prev) => [
       ...prev,
       {
         type: 'run',
         id: ++entryId.current,
         command,
-        stream: raw.stream ?? (raw.stdout ? [{ fd: 1, text: raw.stdout }] : []),
+        stream,
         exitCode: raw.exitCode ?? (raw.kind === 'ok' ? 0 : 1),
         timeMs: raw.timeMs,
         footer,
       },
     ]);
+  };
   const appendNote = (text: string, tone: 'good' | 'bad' | 'plain') => setSession((prev) => [...prev, { type: 'note', id: ++entryId.current, text, tone }]);
   const markFrom = (diagnostics?: Diagnostic[]) => setMarkers((diagnostics ?? []).filter((d) => d.file === LANGUAGE_META[language].file && d.severity === 'error'));
 
