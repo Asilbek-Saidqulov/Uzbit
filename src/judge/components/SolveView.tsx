@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Copy, History, Lightbulb, Loader2, Play, RotateCcw, Send, Square, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Copy, History, Lightbulb, Loader2, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, Send, Square, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { CodeEditor, type JumpTarget } from './CodeEditor';
 import { commandFor, Terminal, type TermEntry } from './Terminal';
 import { StatePanel } from '@/components/StatePanel.tsx';
 import { cancelRun, NATIVE_RUNNER_CONFIGURED, runProgram } from '../engine/runner';
 import { judgeCode, runCustom } from '../engine/judge';
-import type { Attempt } from '../storage';
+import { loadPanelHeight, savePanelHeight, type Attempt } from '../storage';
 import type { Diagnostic, Difficulty, JudgeProblem, JudgeReport, Language, RawResult, StreamChunk, Verdict } from '../types';
 import { LANGUAGE_META } from '../types';
 
@@ -19,7 +19,19 @@ interface SolveViewProps {
   attempts: Attempt[];
   onAttempt: (attempt: Attempt) => void;
   onRestoreAttempt: (attempt: Attempt) => void;
+  /**
+   * Wide screen mode: like an editor window. The statement is hidden (a button brings it back as a
+   * side panel), the code editor spans the full width and the terminal panel sits under it.
+   */
+  wide?: boolean;
 }
+
+/** The editor keeps at least this much height (code area plus status bar) when the panel is dragged up. */
+const MIN_EDITOR_HEIGHT = 200;
+const MIN_PANEL_HEIGHT = 120;
+/** The toolbar above the editor, and the language banner when it shows. */
+const TOOLBAR_HEIGHT = 56;
+const defaultPanelHeight = (wide: boolean) => (wide ? Math.round(window.innerHeight * 0.34) : 320);
 
 export const VERDICT_LABEL: Record<Verdict, string> = {
   accepted: 'Accepted',
@@ -63,7 +75,61 @@ export const SolveView: React.FC<SolveViewProps> = ({
   attempts,
   onAttempt,
   onRestoreAttempt,
+  wide = false,
 }) => {
+  const [descriptionOpen, setDescriptionOpen] = useState(false);
+  const showDescription = !wide || descriptionOpen;
+
+  // Height of the terminal panel, which can be dragged like the panel in VS Code.
+  const rightRef = useRef<HTMLElement>(null);
+  const dragRef = useRef<{ startY: number; startH: number } | null>(null);
+  const clampPanel = (h: number) => {
+    const total = rightRef.current?.clientHeight ?? window.innerHeight;
+    const max = Math.max(MIN_PANEL_HEIGHT, total - TOOLBAR_HEIGHT - MIN_EDITOR_HEIGHT);
+    return Math.round(Math.min(Math.max(h, MIN_PANEL_HEIGHT), max));
+  };
+  const [panelH, setPanelH] = useState(() => loadPanelHeight(wide) ?? defaultPanelHeight(wide));
+  useEffect(() => {
+    // Each mode remembers its own height.
+    setPanelH(clampPanel(loadPanelHeight(wide) ?? defaultPanelHeight(wide)));
+    // clampPanel only reads refs and the window.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wide]);
+  useEffect(() => {
+    const onResize = () => setPanelH((h) => clampPanel(h));
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setPanel = (h: number) => {
+    const next = clampPanel(h);
+    setPanelH(next);
+    savePanelHeight(wide, next);
+  };
+  const onHandleDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { startY: e.clientY, startH: panelH };
+  };
+  const onHandleMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (drag) setPanelH(clampPanel(drag.startH + (drag.startY - e.clientY)));
+  };
+  const onHandleUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag) return;
+    dragRef.current = null;
+    setPanel(drag.startH + (drag.startY - e.clientY));
+  };
+  const onHandleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'ArrowUp') setPanel(panelH + 24);
+    else if (e.key === 'ArrowDown') setPanel(panelH - 24);
+    else if (e.key === 'Home') setPanel(9999);
+    else if (e.key === 'End') setPanel(0);
+    else return;
+    e.preventDefault();
+  };
+
   const [leftTab, setLeftTab] = useState<'description' | 'hint'>('description');
   const [hintShown, setHintShown] = useState(false);
   const [bottomTab, setBottomTab] = useState<'tests' | 'terminal' | 'result' | 'attempts'>('tests');
@@ -224,7 +290,8 @@ export const SolveView: React.FC<SolveViewProps> = ({
   return (
     <div className="flex flex-col lg:flex-row min-h-0 flex-1">
       {/* ----- Left: statement ----- */}
-      <section className="lg:w-[44%] lg:max-w-[560px] shrink-0 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col min-h-0">
+      {showDescription && (
+      <section className={`${wide ? 'lg:w-[380px]' : 'lg:w-[44%] lg:max-w-[560px]'} shrink-0 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col min-h-0`}>
         <div className="flex gap-1 px-4 pt-3 border-b border-slate-800">
           {(['description', 'hint'] as const).map((t) => (
             <button
@@ -320,10 +387,23 @@ export const SolveView: React.FC<SolveViewProps> = ({
           )}
         </div>
       </section>
+      )}
 
       {/* ----- Right: editor and results ----- */}
-      <section className="flex-1 min-w-0 flex flex-col min-h-0">
+      <section ref={rightRef} className="flex-1 min-w-0 flex flex-col min-h-0">
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-800 bg-slate-900/60">
+          {wide && (
+            <button
+              type="button"
+              onClick={() => setDescriptionOpen((open) => !open)}
+              aria-pressed={descriptionOpen}
+              title={descriptionOpen ? 'Hide the problem statement' : 'Show the problem statement'}
+              className="btn btn-ghost flex items-center gap-1.5 text-xs"
+            >
+              {descriptionOpen ? <PanelLeftClose className="w-3.5 h-3.5" aria-hidden="true" /> : <PanelLeftOpen className="w-3.5 h-3.5" aria-hidden="true" />}
+              Problem
+            </button>
+          )}
           <label className="sr-only" htmlFor="judge-language">Language</label>
           <select
             id="judge-language"
@@ -388,7 +468,23 @@ export const SolveView: React.FC<SolveViewProps> = ({
         />
 
         {/* ----- Bottom panel ----- */}
-        <div className="h-[320px] shrink-0 border-t border-slate-800 flex flex-col min-h-0">
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize the terminal panel (drag, or use the arrow keys)"
+          aria-valuemin={MIN_PANEL_HEIGHT}
+          aria-valuenow={panelH}
+          tabIndex={0}
+          title="Drag to resize. Double-click to reset."
+          onPointerDown={onHandleDown}
+          onPointerMove={onHandleMove}
+          onPointerUp={onHandleUp}
+          onPointerCancel={onHandleUp}
+          onDoubleClick={() => setPanel(defaultPanelHeight(wide))}
+          onKeyDown={onHandleKey}
+          className="relative h-px shrink-0 cursor-row-resize touch-none bg-slate-800 outline-none transition-colors hover:bg-indigo-500 focus-visible:bg-indigo-500 before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-['']"
+        />
+        <div style={{ height: panelH }} className="shrink-0 flex flex-col min-h-0">
           <div className="flex gap-1 px-3 pt-2 border-b border-slate-800">
             {([
               ['tests', 'Test cases'],

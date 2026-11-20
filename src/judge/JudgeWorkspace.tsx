@@ -45,6 +45,9 @@ export const JudgeWorkspace: React.FC = () => {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState<{ left: number; width: number; height: number } | null>(null);
 
+  // Wide mode only applies to the coding area, not to the problem list or the lessons.
+  const wideActive = wide && view === 'solve';
+
   const toggleWide = () => {
     setWide((on) => {
       saveWide(!on);
@@ -53,7 +56,7 @@ export const JudgeWorkspace: React.FC = () => {
   };
 
   useLayoutEffect(() => {
-    if (!wide) {
+    if (!wideActive) {
       setFrame(null);
       return;
     }
@@ -72,16 +75,16 @@ export const JudgeWorkspace: React.FC = () => {
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
-  }, [wide]);
+  }, [wideActive]);
 
   // Bring the workspace to the top of the window when wide mode starts.
   useEffect(() => {
-    if (wide) wrapRef.current?.scrollIntoView({ block: 'start' });
-  }, [wide]);
+    if (wideActive) wrapRef.current?.scrollIntoView({ block: 'start' });
+  }, [wideActive]);
 
   // Escape leaves wide mode, unless the editor used the key (to close the suggestion list, for example).
   useEffect(() => {
-    if (!wide) return;
+    if (!wideActive) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !e.defaultPrevented) {
         setWide(false);
@@ -90,7 +93,7 @@ export const JudgeWorkspace: React.FC = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [wide]);
+  }, [wideActive]);
 
   const problem: JudgeProblem = problemId === SANDBOX.id ? SANDBOX : getProblem(problemId) ?? PROBLEMS[0];
   // A problem only offers the languages it supports; fall back to its first one.
@@ -164,9 +167,9 @@ export const JudgeWorkspace: React.FC = () => {
     <div ref={wrapRef}>
       <div
         className={`flex flex-col border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden ${
-          wide ? 'rounded-none border-x-0' : 'h-[calc(100vh-13rem)] min-h-[680px] rounded-2xl'
+          wideActive ? 'rounded-none border-x-0' : 'h-[calc(100vh-13rem)] min-h-[680px] rounded-2xl'
         }`}
-        style={wide ? { marginLeft: frame ? -frame.left : 0, width: frame?.width, height: frame?.height ?? 'calc(100vh - 4rem)' } : undefined}
+        style={wideActive ? { marginLeft: frame ? -frame.left : 0, width: frame?.width, height: frame?.height ?? 'calc(100vh - 4rem)' } : undefined}
       >
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3 min-w-0">
@@ -204,16 +207,18 @@ export const JudgeWorkspace: React.FC = () => {
           </nav>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={toggleWide}
-              aria-pressed={wide}
-              title={wide ? 'Leave wide screen mode (Esc)' : 'Wide screen mode: use the whole window'}
-              className="btn btn-ghost flex items-center gap-1.5 text-xs"
-            >
-              {wide ? <Minimize2 className="w-3.5 h-3.5" aria-hidden="true" /> : <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />}
-              <span className="hidden sm:inline">{wide ? 'Exit wide' : 'Wide'}</span>
-            </button>
+            {view === 'solve' && (
+              <button
+                type="button"
+                onClick={toggleWide}
+                aria-pressed={wide}
+                title={wide ? 'Leave wide screen mode (Esc)' : 'Wide screen mode: editor and terminal across the whole window'}
+                className="btn btn-ghost flex items-center gap-1.5 text-xs"
+              >
+                {wide ? <Minimize2 className="w-3.5 h-3.5" aria-hidden="true" /> : <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />}
+                <span className="hidden sm:inline">{wide ? 'Exit wide' : 'Wide'}</span>
+              </button>
+            )}
             <span className="text-xs text-slate-500">
               {solved.size} / {PROBLEMS.length} solved
             </span>
@@ -237,6 +242,7 @@ export const JudgeWorkspace: React.FC = () => {
               attempts={attempts}
               onAttempt={handleAttempt}
               onRestoreAttempt={handleRestore}
+              wide={wideActive}
             />
           )}
         </div>

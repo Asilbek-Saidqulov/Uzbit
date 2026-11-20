@@ -77,6 +77,18 @@ export function saveLastLanguage(language: Language) {
   write(LAST_LANGUAGE_KEY, language);
 }
 
+const panelHeightKey = (wide: boolean) => `uzbit-judge:panel-height:${wide ? 'wide' : 'normal'}:v1`;
+
+/** The height of the terminal panel under the editor, remembered separately for normal and wide mode. */
+export function loadPanelHeight(wide: boolean): number | null {
+  const value = read<number | null>(panelHeightKey(wide), null);
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+export function savePanelHeight(wide: boolean, height: number) {
+  write(panelHeightKey(wide), Math.round(height));
+}
+
 /** Whether the workspace was left in wide screen mode. */
 export function loadWide(): boolean {
   return read<boolean>(WIDE_KEY, false) === true;
