@@ -5,6 +5,7 @@ import type { Language, Verdict } from './types';
 
 const ATTEMPTS_KEY = 'uzbit-judge:attempts:v1';
 const LAST_LANGUAGE_KEY = 'uzbit-judge:last-language:v1';
+const WIDE_KEY = 'uzbit-judge:wide:v1';
 const MAX_ATTEMPTS = 300;
 
 export interface Attempt {
@@ -74,6 +75,15 @@ export function loadLastLanguage(fallback: Language): Language {
 
 export function saveLastLanguage(language: Language) {
   write(LAST_LANGUAGE_KEY, language);
+}
+
+/** Whether the workspace was left in wide screen mode. */
+export function loadWide(): boolean {
+  return read<boolean>(WIDE_KEY, false) === true;
+}
+
+export function saveWide(wide: boolean) {
+  write(WIDE_KEY, wide);
 }
 
 export function solvedProblemIds(attempts: Attempt[]): Set<string> {
