@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useProgressData } from '@/lib/ProgressProvider';
 import { ArrowLeft, BookOpen, FlaskConical, ListChecks, Maximize2, Minimize2, Terminal } from 'lucide-react';
@@ -11,10 +11,8 @@ import { recommendNext } from './recommend';
 import {
   loadDraft,
   loadLastLanguage,
-  loadWide,
   saveDraft,
   saveLastLanguage,
-  saveWide,
   solvedProblemIds,
   type Attempt,
 } from './storage';
@@ -36,63 +34,59 @@ export const JudgeWorkspace: React.FC = () => {
   const [loadNonce, setLoadNonce] = useState(0);
 
   /*
-   * Wide screen mode: the workspace breaks out of the page's centred column and fills the browser
-   * window from edge to edge, from just under the site header to the bottom of the screen.
-   * It stays in the normal page flow (no position: fixed), so the site header keeps working and the
-   * editor's state is never reset when the mode is switched.
+   * Wide screen mode uses the browser Fullscreen API instead of trying to
+   * fake fullscreen with negative margins and viewport measurements.
+   *
+   * The workspace itself becomes the fullscreen element, so the site's
+   * header/footer are outside the fullscreen tree and are not rendered while
+   * wide mode is active. Escape exits fullscreen through the browser, and the
+   * fullscreenchange event keeps React state in sync.
    */
-  const [wide, setWide] = useState(loadWide);
+  const [wide, setWide] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [frame, setFrame] = useState<{ left: number; width: number; height: number } | null>(null);
 
   // Wide mode only applies to the coding area, not to the problem list or the lessons.
   const wideActive = wide && view === 'solve';
 
-  const toggleWide = () => {
-    setWide((on) => {
-      saveWide(!on);
-      return !on;
-    });
-  };
+  const toggleWide = async () => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
 
-  useLayoutEffect(() => {
-    if (!wideActive) {
-      setFrame(null);
+    if (document.fullscreenElement === wrap) {
+      await document.exitFullscreen();
       return;
     }
-    const measure = () => {
-      const wrap = wrapRef.current;
-      if (!wrap) return;
-      const bar = document.querySelector('header.sticky');
-      const barHeight = bar ? bar.getBoundingClientRect().height : 0;
-      wrap.style.scrollMarginTop = `${barHeight}px`;
-      setFrame({
-        left: wrap.getBoundingClientRect().left,
-        width: document.documentElement.clientWidth,
-        height: Math.max(480, window.innerHeight - barHeight),
-      });
+
+    try {
+      await wrap.requestFullscreen();
+    } catch {
+      // Fullscreen can be rejected by the browser/user settings.
+      setWide(false);
+    }
+  };
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const isThisWorkspaceFullscreen = document.fullscreenElement === wrapRef.current;
+      setWide(isThisWorkspaceFullscreen);
     };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  // If the user navigates away from the solve view while fullscreen is active,
+  // leave fullscreen so the other practice screens behave normally.
+  useEffect(() => {
+    if (!wideActive && document.fullscreenElement === wrapRef.current) {
+      void document.exitFullscreen();
+    }
   }, [wideActive]);
 
-  // Bring the workspace to the top of the window when wide mode starts.
   useEffect(() => {
-    if (wideActive) wrapRef.current?.scrollIntoView({ block: 'start' });
-  }, [wideActive]);
-
-  // Escape leaves wide mode, unless the editor used the key (to close the suggestion list, for example).
-  useEffect(() => {
-    if (!wideActive) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) {
-        setWide(false);
-        saveWide(false);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    if (wideActive) {
+      wrapRef.current?.scrollIntoView({ block: 'start' });
+    }
   }, [wideActive]);
 
   const problem: JudgeProblem = problemId === SANDBOX.id ? SANDBOX : getProblem(problemId) ?? PROBLEMS[0];
@@ -169,7 +163,17 @@ export const JudgeWorkspace: React.FC = () => {
         className={`flex flex-col border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden ${
           wideActive ? 'rounded-none border-x-0' : 'h-[calc(100vh-13rem)] min-h-[680px] rounded-2xl'
         }`}
-        style={wideActive ? { marginLeft: frame ? -frame.left : 0, width: frame?.width, height: frame?.height ?? 'calc(100vh - 4rem)' } : undefined}
+        style={
+          wideActive
+            ? {
+                width: '100vw',
+                height: '100dvh',
+                maxWidth: 'none',
+                maxHeight: 'none',
+                margin: 0,
+              }
+            : undefined
+        }
       >
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-3 min-w-0">
